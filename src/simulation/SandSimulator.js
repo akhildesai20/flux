@@ -30,20 +30,28 @@ export class SandSimulator {
   constructor(width, height, particleCount = 5000) {
     this.width = width;
     this.height = height;
-    this.particleCount = Math.min(particleCount, width * height);
+    // Keep headroom so dots can move; a fully packed matrix appears frozen.
+    this.particleCount = Math.min(particleCount, Math.floor(width * height * 0.35));
     this.dots = [];
     this.grid = Array.from({ length: this.width }, () => Array.from({ length: this.height }, () => 0));
     this.fieldMatrix = new Matrix(width, height);
     this.forceX = 0;
     this.forceY = 0;
-    this.rollThreshold = 0.08;
-    this.pitchThreshold = 0.08;
+    this.rollThreshold = 0.02;
+    this.pitchThreshold = 0.02;
     this.reset();
   }
 
-  setForce(fx, fy) {
+  setForce(fx, fy, magnitude = 0) {
     this.forceX = Number.isFinite(fx) ? fx : 0;
     this.forceY = Number.isFinite(fy) ? fy : 0;
+    const mag = Number.isFinite(magnitude) ? magnitude : 0;
+
+    // With little/no motion input, keep gravity acting downward so the pile settles visibly.
+    if (mag < 0.02) {
+      this.forceX = 0;
+      this.forceY = 1;
+    }
   }
 
   update() {
