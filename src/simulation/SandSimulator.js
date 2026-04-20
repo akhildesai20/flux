@@ -5,6 +5,7 @@ class PixelObject {
     this.id = inId;
     this.isOn = false;
     this.gravityOn = false;
+    this.colorVariant = ((inId * 37) % 101) / 100;
   }
 }
 
@@ -34,6 +35,7 @@ export class SandSimulator {
     this.particleCount = Math.min(particleCount, Math.floor(width * height * 0.35));
     this.dots = [];
     this.grid = Array.from({ length: this.width }, () => Array.from({ length: this.height }, () => 0));
+    this.colorGrid = Array.from({ length: this.width }, () => Array.from({ length: this.height }, () => 0));
     this.fieldMatrix = new Matrix(width, height);
     this.forceX = 0;
     this.forceY = 0;
@@ -111,11 +113,13 @@ export class SandSimulator {
   rebuildGrid() {
     for (let x = 0; x < this.width; x += 1) {
       this.grid[x].fill(0);
+      this.colorGrid[x].fill(0);
     }
     for (let i = 0; i < this.dots.length; i += 1) {
       const dot = this.dots[i];
       if (!dot.isOn) continue;
       this.grid[dot.xPos][dot.yPos] = 1;
+      this.colorGrid[dot.xPos][dot.yPos] = dot.colorVariant;
     }
   }
 
@@ -135,6 +139,13 @@ export class SandSimulator {
   getDensity(x, y) {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) return 0;
     return this.grid[x][y];
+  }
+
+  getParticleShade(x, y) {
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height) return 0;
+    if (this.grid[x][y] === 0) return 0;
+    // Keep shades within the selected palette while ensuring visible variance.
+    return 0.35 + this.colorGrid[x][y] * 0.65;
   }
 
   getParticleCount() {

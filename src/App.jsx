@@ -4,22 +4,38 @@ import SandSimulator from "./simulation/SandSimulator";
 import { densityToColor } from "./components/CanvasRenderer";
 
 const DEFAULTS = {
-  gridSize: 21,
+  gridSize: 32,
   colorScheme: "blueCyan",
 };
+
+const GRID_OPTIONS = [16, 32, 64, 128];
+
+function getParticleRange(gridSize) {
+  return {
+    min: 16,
+    max: Math.max(16, Math.floor((gridSize * gridSize) / 2)),
+  };
+}
 
 function App() {
   const [gridSize, setGridSize] = useState(DEFAULTS.gridSize);
   const [colorScheme, setColorScheme] = useState(DEFAULTS.colorScheme);
+  const initialRange = getParticleRange(DEFAULTS.gridSize);
+  const [particleCount, setParticleCount] = useState(Math.floor((initialRange.min + initialRange.max) / 2));
   const [fps, setFps] = useState(0);
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
   const [motionRequested, setMotionRequested] = useState(false);
   const sensor = useSensorInput();
-  const simulator = useMemo(() => new SandSimulator(gridSize, gridSize, 8000), [gridSize]);
+  const simulator = useMemo(() => new SandSimulator(gridSize, gridSize, particleCount), [gridSize, particleCount]);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const fpsRef = useRef([]);
   const lastFrameTimeRef = useRef(0);
+  const particleRange = getParticleRange(gridSize);
+
+  useEffect(() => {
+    setParticleCount((current) => Math.min(particleRange.max, Math.max(particleRange.min, current)));
+  }, [particleRange.max, particleRange.min]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,8 +74,8 @@ function App() {
       const cellSize = canvas.width / gridSize;
       for (let y = 0; y < gridSize; y += 1) {
         for (let x = 0; x < gridSize; x += 1) {
-          const density = simulator.getDensity(x, y);
-          context.fillStyle = densityToColor(density, colorScheme);
+          const density = simulator.getParticleShade(x, y);
+          context.fillStyle = density > 0 ? densityToColor(density, colorScheme) : "#000";
           context.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
           context.strokeStyle = "#222";
           context.lineWidth = 0.5;
@@ -177,7 +193,7 @@ function App() {
           <div style={{ marginBottom: "1rem" }}>
             <label>Grid Size</label>
             <div>
-              {[14, 21, 32].map((size) => (
+              {GRID_OPTIONS.map((size) => (
                 <button
                   key={size}
                   onClick={() => setGridSize(size)}
@@ -194,6 +210,23 @@ function App() {
                   {size}x{size}
                 </button>
               ))}
+            </div>
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label>Particles</label>
+            <div style={{ marginTop: "8px" }}>
+              <input
+                type="range"
+                min={particleRange.min}
+                max={particleRange.max}
+                step={1}
+                value={particleCount}
+                onChange={(event) => setParticleCount(Number(event.target.value))}
+                style={{ width: "100%" }}
+              />
+              <div style={{ fontSize: "12px", marginTop: "4px", color: "#b8beca" }}>
+                {particleCount} (min {particleRange.min}, max {particleRange.max})
+              </div>
             </div>
           </div>
           <div style={{ marginBottom: "1rem" }}>
