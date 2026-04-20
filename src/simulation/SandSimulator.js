@@ -7,6 +7,7 @@ export class SandSimulator {
     this.grid = Array.from({ length: width }, () => Array.from({ length: height }, () => 0));
     this.gravity_x = 0;
     this.gravity_y = 0;
+    this.totalParticles = 0;
     this.reset();
   }
 
@@ -23,20 +24,33 @@ export class SandSimulator {
 
   update() {
     const newGrid = Array.from({ length: this.width }, () => Array.from({ length: this.height }, () => 0));
+    const cells = [];
 
     for (let y = 0; y < this.height; y += 1) {
       for (let x = 0; x < this.width; x += 1) {
         const count = this.grid[x][y];
-        if (count === 0) continue;
+        if (count > 0) {
+          cells.push({ x, y, count });
+        }
+      }
+    }
 
-        for (let i = 0; i < count; i += 1) {
-          const { nx, ny } = this.findNewPosition(x, y, newGrid);
+    // ESP32-like downstream ordering: process particles in current gravity direction first.
+    const gravityVecY = 1;
+    cells.sort((a, b) => {
+      const da = a.x * this.gravity_x + a.y * gravityVecY;
+      const db = b.x * this.gravity_x + b.y * gravityVecY;
+      return db - da;
+    });
 
-          if (this.isEmpty(nx, ny, newGrid)) {
-            newGrid[nx][ny] += 1;
-          } else {
-            newGrid[x][y] += 1;
-          }
+    for (const cell of cells) {
+      const count = cell.count;
+      for (let i = 0; i < count; i += 1) {
+        const { nx, ny } = this.findNewPosition(cell.x, cell.y, newGrid);
+        if (this.isEmpty(nx, ny, newGrid)) {
+          newGrid[nx][ny] += 1;
+        } else {
+          newGrid[cell.x][cell.y] += 1;
         }
       }
     }
@@ -90,6 +104,16 @@ export class SandSimulator {
     return Math.sqrt(normalized);
   }
 
+  getParticleCount() {
+    let total = 0;
+    for (let y = 0; y < this.height; y += 1) {
+      for (let x = 0; x < this.width; x += 1) {
+        total += this.grid[x][y];
+      }
+    }
+    return total;
+  }
+
   reset() {
     this.grid = Array.from({ length: this.width }, () => Array.from({ length: this.height }, () => 0));
     const topThird = Math.floor(this.height / 3);
@@ -103,6 +127,7 @@ export class SandSimulator {
       }
     }
 
+    this.totalParticles = placed;
     console.log("Reset: placed", placed, "particles");
   }
 

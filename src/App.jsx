@@ -103,7 +103,7 @@ function App() {
             fontSize: "12px",
           }}
         >
-          FPS: {fps} | Grid: {gridSize}x{gridSize} | {colorScheme}
+          FPS: {fps} | Grid: {gridSize}x{gridSize} | {colorScheme} | Particles: {simulator.getParticleCount()}
         </div>
       </div>
 
