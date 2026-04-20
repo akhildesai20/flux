@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const FILTER_ALPHA = 0.7;
+const MOTION_THRESHOLD = 0.15;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -12,6 +13,7 @@ function useSensorInput() {
   const [force, setForce] = useState({ forceX: 0, forceY: 0, forceMag: 0 });
   const [error, setError] = useState("");
   const filteredRef = useRef({ forceX: 0, forceY: 0, forceMag: 0 });
+  const seenEventRef = useRef(false);
 
   const onOrientation = useCallback((event) => {
     const beta = typeof event.beta === "number" ? event.beta : 0;
@@ -26,14 +28,22 @@ function useSensorInput() {
     const nextY = FILTER_ALPHA * prev.forceY + (1 - FILTER_ALPHA) * currentY;
     const nextMag = FILTER_ALPHA * prev.forceMag + (1 - FILTER_ALPHA) * currentMag;
 
-    const thresholded = nextMag < 0.5 ? { forceX: 0, forceY: 0, forceMag: 0 } : { forceX: nextX, forceY: nextY, forceMag: clamp(nextMag, 0, 1.2) };
+    if (!seenEventRef.current) {
+      seenEventRef.current = true;
+      setHasMotion(true);
+      setError("");
+    }
+
+    const thresholded =
+      nextMag < MOTION_THRESHOLD
+        ? { forceX: 0, forceY: 0, forceMag: 0 }
+        : { forceX: nextX, forceY: nextY, forceMag: clamp(nextMag, 0, 1.2) };
     filteredRef.current = thresholded;
     setForce(thresholded);
   }, []);
 
   const registerListener = useCallback(() => {
     window.addEventListener("deviceorientation", onOrientation, true);
-    setHasMotion(true);
   }, [onOrientation]);
 
   const requestMotionPermission = useCallback(async () => {
@@ -67,6 +77,13 @@ function useSensorInput() {
   useEffect(() => {
     if (typeof window === "undefined" || typeof DeviceOrientationEvent === "undefined") {
       setHasMotion(false);
+      return undefined;
+    }
+
+    if (!window.isSecureContext) {
+      setError("Motion sensors require HTTPS (or localhost) in this browser.");
+      setHasMotion(false);
+      setIsRequested(true);
       return undefined;
     }
 

@@ -94,9 +94,18 @@ class FluidSimulator {
   }
 
   sampleDensity(x, y) {
-    const cx = this.clamp(Math.round(x), 0, this.width - 1);
-    const cy = this.clamp(Math.round(y), 0, this.height - 1);
-    return this.density[cy][cx];
+    const clampedX = this.clamp(x, 0, this.width - 1);
+    const clampedY = this.clamp(y, 0, this.height - 1);
+    const x0 = Math.floor(clampedX);
+    const y0 = Math.floor(clampedY);
+    const x1 = Math.min(x0 + 1, this.width - 1);
+    const y1 = Math.min(y0 + 1, this.height - 1);
+    const tx = clampedX - x0;
+    const ty = clampedY - y0;
+
+    const top = this.density[y0][x0] * (1 - tx) + this.density[y0][x1] * tx;
+    const bottom = this.density[y1][x0] * (1 - tx) + this.density[y1][x1] * tx;
+    return top * (1 - ty) + bottom * ty;
   }
 
   advectDensity(deltaTime) {
