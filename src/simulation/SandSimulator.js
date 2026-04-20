@@ -20,26 +20,21 @@ export class SandSimulator {
 
   update() {
     const newGrid = Array.from({ length: this.width }, () => Array.from({ length: this.height }, () => 0));
-    const cells = [];
 
     for (let y = 0; y < this.height; y += 1) {
       for (let x = 0; x < this.width; x += 1) {
-        if (this.grid[x][y] > 0) {
-          cells.push({ x, y, count: this.grid[x][y] });
+        const count = this.grid[x][y];
+        if (count === 0) continue;
+
+        for (let i = 0; i < count; i += 1) {
+          const { nx, ny } = this.findNewPosition(x, y, newGrid);
+
+          if (!this.addParticleToCell(nx, ny, newGrid)) {
+            // Destination was full or invalid: keep particle at source.
+            // If source cell is already at max in newGrid, we still add one to conserve particle count.
+            this.addParticleToCell(x, y, newGrid, true);
+          }
         }
-      }
-    }
-
-    cells.sort((a, b) => {
-      const dotA = a.x * this.gravity_x + a.y * this.gravity_y;
-      const dotB = b.x * this.gravity_x + b.y * this.gravity_y;
-      return dotB - dotA;
-    });
-
-    for (const cell of cells) {
-      for (let i = 0; i < cell.count; i += 1) {
-        const { nx, ny } = this.findNewPosition(cell.x, cell.y, newGrid);
-        newGrid[nx][ny] += 1;
       }
     }
 
@@ -47,41 +42,56 @@ export class SandSimulator {
   }
 
   findNewPosition(x, y, newGrid) {
-    const dx = Math.round(this.gravity_x);
-    const dy = Math.round(this.gravity_y);
+    const primaryDx = this.gravity_x > 0 ? 1 : this.gravity_x < 0 ? -1 : 0;
+    const primaryDy = this.gravity_y > 0 ? 1 : this.gravity_y < 0 ? -1 : 0;
+    const primaryMagnitude = Math.max(Math.abs(this.gravity_x), Math.abs(this.gravity_y));
 
-    const direct = { nx: x + dx, ny: y + dy };
-    if (this.isEmpty(direct.nx, direct.ny, newGrid)) {
-      return direct;
+    if (Math.random() < primaryMagnitude) {
+      const nx = x + primaryDx;
+      const ny = y + primaryDy;
+      if (this.isEmpty(nx, ny, newGrid)) {
+        return { nx, ny };
+      }
     }
 
-    if (dx !== 0 && dy !== 0) {
-      const canX = this.isEmpty(x + dx, y, newGrid);
-      const canY = this.isEmpty(x, y + dy, newGrid);
-      if (canX && canY) {
-        return Math.random() > 0.5 ? { nx: x + dx, ny: y } : { nx: x, ny: y + dy };
+    if (primaryDx !== 0 && primaryDy !== 0) {
+      const tryX = Math.random() > 0.5;
+      if (tryX && this.isEmpty(x + primaryDx, y, newGrid)) {
+        return { nx: x + primaryDx, ny: y };
       }
-      if (canX) return { nx: x + dx, ny: y };
-      if (canY) return { nx: x, ny: y + dy };
-    } else if (dx !== 0) {
-      const canUp = this.isEmpty(x, y - 1, newGrid);
-      const canDown = this.isEmpty(x, y + 1, newGrid);
-      if (canUp && canDown) {
-        return Math.random() > 0.5 ? { nx: x, ny: y - 1 } : { nx: x, ny: y + 1 };
+      if (this.isEmpty(x, y + primaryDy, newGrid)) {
+        return { nx: x, ny: y + primaryDy };
       }
-      if (canUp) return { nx: x, ny: y - 1 };
-      if (canDown) return { nx: x, ny: y + 1 };
-    } else if (dy !== 0) {
-      const canLeft = this.isEmpty(x - 1, y, newGrid);
-      const canRight = this.isEmpty(x + 1, y, newGrid);
-      if (canLeft && canRight) {
-        return Math.random() > 0.5 ? { nx: x - 1, ny: y } : { nx: x + 1, ny: y };
+    } else if (primaryDx !== 0) {
+      const tryUp = Math.random() > 0.5;
+      if (tryUp && this.isEmpty(x, y - 1, newGrid)) {
+        return { nx: x, ny: y - 1 };
       }
-      if (canLeft) return { nx: x - 1, ny: y };
-      if (canRight) return { nx: x + 1, ny: y };
+      if (this.isEmpty(x, y + 1, newGrid)) {
+        return { nx: x, ny: y + 1 };
+      }
+    } else if (primaryDy !== 0) {
+      const tryLeft = Math.random() > 0.5;
+      if (tryLeft && this.isEmpty(x - 1, y, newGrid)) {
+        return { nx: x - 1, ny: y };
+      }
+      if (this.isEmpty(x + 1, y, newGrid)) {
+        return { nx: x + 1, ny: y };
+      }
     }
 
     return { nx: x, ny: y };
+  }
+
+  addParticleToCell(x, y, newGrid, allowOverflow = false) {
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+      return false;
+    }
+    if (allowOverflow || newGrid[x][y] < this.maxParticlesPerCell) {
+      newGrid[x][y] += 1;
+      return true;
+    }
+    return false;
   }
 
   isEmpty(x, y, newGrid) {
