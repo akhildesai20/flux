@@ -16,11 +16,14 @@ function useSensorInput() {
   const seenEventRef = useRef(false);
 
   const onOrientation = useCallback((event) => {
+    const beta = typeof event.beta === "number" ? event.beta : 0;
     const gamma = typeof event.gamma === "number" ? event.gamma : 0;
 
-    const currentX = clamp(gamma / 90, -1, 1);
-    const currentY = 0;
-    const currentMag = Math.abs(currentX);
+    // Map device orientation to world-axes tilt.
+    // gamma: left/right tilt, beta: front/back tilt.
+    const currentX = clamp(gamma / 60, -1, 1);
+    const currentY = clamp(beta / 60, -1, 1);
+    const currentMag = Math.sqrt(currentX ** 2 + currentY ** 2);
 
     const prev = filteredRef.current;
     const nextX = FILTER_ALPHA * prev.forceX + (1 - FILTER_ALPHA) * currentX;
@@ -36,7 +39,7 @@ function useSensorInput() {
     const thresholded =
       nextMag < MOTION_THRESHOLD
         ? { forceX: 0, forceY: 0, forceMag: 0 }
-        : { forceX: nextX, forceY: nextY, forceMag: clamp(nextMag, 0, 1.2) };
+        : { forceX: nextX, forceY: nextY, forceMag: clamp(nextMag, 0, 1.4) };
     filteredRef.current = thresholded;
     setForce(thresholded);
   }, []);
