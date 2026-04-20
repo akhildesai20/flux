@@ -74,9 +74,26 @@ const CanvasRenderer = forwardRef(function CanvasRenderer(
     context.strokeStyle = "rgba(60, 60, 60, 0.8)";
     context.lineWidth = 0.5;
 
+    const getSmoothedDensity = (x, y) => {
+      let sum = 0;
+      let count = 0;
+      for (let dx = -1; dx <= 1; dx += 1) {
+        for (let dy = -1; dy <= 1; dy += 1) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx >= gridSize || ny < 0 || ny >= gridSize) {
+            continue;
+          }
+          sum += simulator.getDensity(nx, ny);
+          count += 1;
+        }
+      }
+      return count > 0 ? sum / count : 0;
+    };
+
     for (let y = 0; y < gridSize; y += 1) {
       for (let x = 0; x < gridSize; x += 1) {
-        const density = simulator.getDensity(x, y);
+        const density = getSmoothedDensity(x, y);
         context.fillStyle = densityToColor(density, colorScheme, customColor);
         context.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         context.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
