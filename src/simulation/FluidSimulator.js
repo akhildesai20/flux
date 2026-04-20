@@ -3,17 +3,20 @@ class FluidSimulator {
     this.width = width;
     this.height = height;
     this.gravity = 0.15;
+    this.gravity_dx = 0;
+    this.gravity_dy = this.gravity;
+    this.gravityTiltScale = 0.65;
     this.diffusion = 0.0001;
-    this.decay = 0.99;
-    this.dissipation = 0.98;
-    this.wallDamping = 0.82;
-    this.floorDamping = 0.45;
-    this.pileUpBias = 0.2;
-    this.pressureIterations = 22;
-    this.pressureStrength = 1.0;
-    this.shearViscosity = 0.08;
+    this.decay = 0.985;
+    this.dissipation = 0.96;
+    this.wallDamping = 0.6;
+    this.floorDamping = 0.5;
+    this.pileUpBias = 0.08;
+    this.pressureIterations = 20;
+    this.pressureStrength = 1.8;
+    this.shearViscosity = 0.00008;
     this.boundaryDrag = 0.08;
-    this.surfaceTension = 0.12;
+    this.surfaceTension = 0.15;
     this.surfaceThresholdLow = 0.06;
     this.surfaceThresholdHigh = 0.8;
     this.forceX = 0;
@@ -45,21 +48,28 @@ class FluidSimulator {
     this.applyExternalForce(deltaTime);
     this.applyViscosityCoupling(deltaTime);
     this.diffuseVelocity();
-    this.applyBoundaryConditions();
     this.computeDivergence();
     this.solvePressure(this.pressureIterations);
     this.projectVelocity();
+    this.applyDirectionalBoundaries();
     this.advectDensity(deltaTime);
+    this.applyParticleCollisions();
     this.applySurfaceTension();
-    this.applyBoundaryConditions();
+    this.applyDirectionalBoundaries();
     this.applyDecayAndDissipation();
     this.injectSource();
   }
 
   applyGravity(deltaTime) {
+    const tiltX = this.forceX * this.gravityTiltScale;
+    const tiltY = this.forceY * this.gravityTiltScale;
+    this.gravity_dx = tiltX;
+    this.gravity_dy = this.gravity + tiltY;
+
     for (let y = 0; y < this.height; y += 1) {
       for (let x = 0; x < this.width; x += 1) {
-        this.velocityY[y][x] += this.gravity * deltaTime;
+        this.velocityX[y][x] += this.gravity_dx * deltaTime;
+        this.velocityY[y][x] += this.gravity_dy * deltaTime;
       }
     }
   }
@@ -122,7 +132,7 @@ class FluidSimulator {
         const duDy = (this.velocityX[y + 1][x] - this.velocityX[y - 1][x]) * 0.5;
         const dvDx = (this.velocityY[y][x + 1] - this.velocityY[y][x - 1]) * 0.5;
         const shear = Math.abs(duDy + dvDx);
-        const coupling = this.clamp(shear * this.shearViscosity * deltaTime, 0, 0.25);
+        const coupling = this.clamp(shear * this.shearViscosity * deltaTime * 1000, 0, 0.2);
 
         this.velocityX[y][x] *= 1 - coupling;
         this.velocityY[y][x] *= 1 - coupling;
@@ -130,39 +140,61 @@ class FluidSimulator {
     }
   }
 
-  applyBoundaryConditions() {
-    const lastX = this.width - 1;
-    const lastY = this.height - 1;
+  getGravityBoundary() {
+    const mag = Math.sqrt(this.gravity_dx ** 2 + this.gravity_dy ** 2);
+    if (mag < 0.01) {
+      return null;
+    }
+
+    const gx = this.gravity_dx / mag;
+    const gy = this.gravity_dy / mag;
+
+    return {
+      downstreamX: gx > 0 ? this.width - 1 : gx < 0 ? 0 : -1,
+      downstreamY: gy > 0 ? this.height - 1 : gy < 0 ? 0 : -1,
+      wallNormalX: gx,
+      wallNormalY: gy,
+    };
+  }
+
+  applyDirectionalBoundaries() {
+    const boundary = this.getGravityBoundary();
+    if (!boundary) {
+      return;
+    }
+
+    const { downstreamX, downstreamY, wallNormalX, wallNormalY } = boundary;
 
     for (let y = 0; y < this.height; y += 1) {
-      if (this.velocityX[y][0] < 0) {
-        this.velocityX[y][0] *= -this.wallDamping;
-      }
-      if (this.velocityX[y][lastX] > 0) {
-        this.velocityX[y][lastX] *= -this.wallDamping;
-      }
+      for (let x = 0; x < this.width; x += 1) {
+        let distToEdge = 999;
+        if (downstreamX >= 0) {
+          distToEdge = Math.min(distToEdge, Math.abs(x - downstreamX));
+        }
+        if (downstreamY >= 0) {
+          distToEdge = Math.min(distToEdge, Math.abs(y - downstreamY));
+        }
 
-      this.velocityY[y][0] *= 1 - this.boundaryDrag;
-      this.velocityY[y][lastX] *= 1 - this.boundaryDrag;
-    }
+        if (distToEdge > 2) {
+          continue;
+        }
 
-    for (let x = 0; x < this.width; x += 1) {
-      if (this.velocityY[0][x] < 0) {
-        this.velocityY[0][x] *= -this.wallDamping;
-      }
-      if (this.velocityY[lastY][x] > 0) {
-        this.velocityY[lastY][x] *= -this.floorDamping;
-      }
+        const velDot = this.velocityX[y][x] * wallNormalX + this.velocityY[y][x] * wallNormalY;
+        if (velDot > 0) {
+          const bounceScale = 1 + this.wallDamping;
+          this.velocityX[y][x] -= velDot * wallNormalX * bounceScale;
+          this.velocityY[y][x] -= velDot * wallNormalY * bounceScale;
+        }
 
-      this.velocityX[0][x] *= 1 - this.boundaryDrag;
-      this.velocityX[lastY][x] *= 1 - this.boundaryDrag;
-    }
+        if (distToEdge < 1.5) {
+          this.density[y][x] = this.clamp(this.density[y][x] * (1 + this.pileUpBias), 0, 1);
+        }
 
-    for (let x = 0; x < this.width; x += 1) {
-      const floorDensity = this.density[lastY][x];
-      if (floorDensity > 0) {
-        const retained = floorDensity * this.pileUpBias;
-        this.density[lastY][x] = this.clamp(floorDensity + retained, 0, 1);
+        const sharpenFactor = 1 - 0.02 * (2 - distToEdge);
+        this.density[y][x] = this.clamp(this.density[y][x] * sharpenFactor, 0, 1);
+
+        this.velocityX[y][x] *= 1 - this.boundaryDrag * 0.5;
+        this.velocityY[y][x] *= 1 - this.boundaryDrag * 0.5;
       }
     }
   }
@@ -188,18 +220,23 @@ class FluidSimulator {
 
   solvePressure(iterations) {
     const passes = this.clamp(Math.round(iterations), 4, 60);
-    const scale = this.pressureStrength;
+    const scale = 0.25;
 
     for (let pass = 0; pass < passes; pass += 1) {
       for (let y = 1; y < this.height - 1; y += 1) {
         for (let x = 1; x < this.width - 1; x += 1) {
-          this.pressure[y][x] =
-            (this.pressure[y][x - 1] +
-              this.pressure[y][x + 1] +
-              this.pressure[y - 1][x] +
-              this.pressure[y + 1][x] -
-              this.divergence[y][x] * scale) *
-            0.25;
+          const div = this.divergence[y][x];
+          if (Math.abs(div) > 0.1) {
+            const pAvg =
+              (this.pressure[y][x - 1] +
+                this.pressure[y][x + 1] +
+                this.pressure[y - 1][x] +
+                this.pressure[y + 1][x]) *
+              scale;
+            this.pressure[y][x] = pAvg - div * this.pressureStrength * 1.5;
+          } else {
+            this.pressure[y][x] *= 0.95;
+          }
         }
       }
 
@@ -260,23 +297,48 @@ class FluidSimulator {
     for (let y = 1; y < this.height - 1; y += 1) {
       for (let x = 1; x < this.width - 1; x += 1) {
         const current = this.density[y][x];
-        if (current < this.surfaceThresholdLow || current > this.surfaceThresholdHigh) {
+        if (current < this.surfaceThresholdLow) {
           continue;
         }
 
-        const gradX = (this.density[y][x + 1] - this.density[y][x - 1]) * 0.5;
-        const gradY = (this.density[y + 1][x] - this.density[y - 1][x]) * 0.5;
-
-        this.velocityX[y][x] -= gradX * this.surfaceTension;
-        this.velocityY[y][x] -= gradY * this.surfaceTension;
-
-        const neighborAverage =
+        const neighbors = [
+          this.density[y][x - 1],
+          this.density[y][x + 1],
+          this.density[y - 1][x],
+          this.density[y + 1][x],
+        ];
+        const averageNeighbor =
           (this.density[y][x - 1] +
             this.density[y][x + 1] +
             this.density[y - 1][x] +
             this.density[y + 1][x]) *
           0.25;
-        this.density[y][x] = this.clamp(current + (neighborAverage - current) * this.surfaceTension * 0.08, 0, 1);
+
+        if (current > 0.3 && averageNeighbor < 0.2) {
+          this.density[y][x] *= 1 - this.surfaceTension * 0.5;
+        } else if (current > 0.3 && averageNeighbor > 0.3) {
+          this.density[y][x] = Math.min(1, this.density[y][x] * (1 + this.surfaceTension * 0.1));
+        }
+
+        const maxNeighbor = Math.max(...neighbors);
+        if (current > this.surfaceThresholdLow && current < this.surfaceThresholdHigh && maxNeighbor > current) {
+          this.density[y][x] = this.clamp(
+            current + (maxNeighbor - current) * this.surfaceTension * 0.06,
+            0,
+            1,
+          );
+        }
+      }
+    }
+  }
+
+  applyParticleCollisions() {
+    for (let y = 0; y < this.height; y += 1) {
+      for (let x = 0; x < this.width; x += 1) {
+        if (this.density[y][x] > 0.9) {
+          this.velocityX[y][x] *= 0.85;
+          this.velocityY[y][x] *= 0.85;
+        }
       }
     }
   }

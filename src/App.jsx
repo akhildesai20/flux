@@ -17,11 +17,14 @@ const DEFAULTS = {
   colorScheme: "blueCyan",
   gravity: 0.15,
   viscosity: 0.0001,
-  decay: 0.99,
-  wallDamping: 0.82,
-  pressureIterations: 22,
-  shearViscosity: 0.08,
-  surfaceTension: 0.12,
+  decay: 0.985,
+  wallDamping: 0.6,
+  pressureIterations: 20,
+  pressureStrength: 1.8,
+  shearViscosity: 0.00008,
+  surfaceTension: 0.15,
+  pileUpBias: 0.08,
+  dissipation: 0.96,
 };
 
 function App() {
@@ -34,8 +37,11 @@ function App() {
   const [decay, setDecay] = useState(DEFAULTS.decay);
   const [wallDamping, setWallDamping] = useState(DEFAULTS.wallDamping);
   const [pressureIterations, setPressureIterations] = useState(DEFAULTS.pressureIterations);
+  const [pressureStrength, setPressureStrength] = useState(DEFAULTS.pressureStrength);
   const [shearViscosity, setShearViscosity] = useState(DEFAULTS.shearViscosity);
   const [surfaceTension, setSurfaceTension] = useState(DEFAULTS.surfaceTension);
+  const [pileUpBias, setPileUpBias] = useState(DEFAULTS.pileUpBias);
+  const [dissipation, setDissipation] = useState(DEFAULTS.dissipation);
 
   const sensor = useSensorInput();
   const { theme, toggleTheme } = useTheme();
@@ -45,8 +51,11 @@ function App() {
   simulator.decay = decay;
   simulator.wallDamping = wallDamping;
   simulator.pressureIterations = pressureIterations;
+  simulator.pressureStrength = pressureStrength;
   simulator.shearViscosity = shearViscosity;
   simulator.surfaceTension = surfaceTension;
+  simulator.pileUpBias = pileUpBias;
+  simulator.dissipation = dissipation;
 
   const rendererRef = useRef(null);
   const { fps } = useGameLoop(simulator, sensor, rendererRef);
@@ -57,8 +66,11 @@ function App() {
     setDecay(DEFAULTS.decay);
     setWallDamping(DEFAULTS.wallDamping);
     setPressureIterations(DEFAULTS.pressureIterations);
+    setPressureStrength(DEFAULTS.pressureStrength);
     setShearViscosity(DEFAULTS.shearViscosity);
     setSurfaceTension(DEFAULTS.surfaceTension);
+    setPileUpBias(DEFAULTS.pileUpBias);
+    setDissipation(DEFAULTS.dissipation);
     simulator.reset();
   };
 
@@ -121,26 +133,43 @@ function App() {
           <PhysicsSlider
             label="Pressure Iterations"
             value={pressureIterations}
-            min={8}
-            max={40}
+            min={10}
+            max={30}
             step={1}
             onChange={(value) => setPressureIterations(Math.round(value))}
+          />
+          <PhysicsSlider
+            label="Pressure Strength"
+            value={pressureStrength}
+            min={1.2}
+            max={2.5}
+            step={0.05}
+            onChange={setPressureStrength}
           />
           <PhysicsSlider
             label="Shear Viscosity"
             value={shearViscosity}
             min={0}
-            max={0.3}
-            step={0.01}
+            max={0.001}
+            step={0.00001}
             onChange={setShearViscosity}
           />
           <PhysicsSlider
             label="Surface Tension"
             value={surfaceTension}
             min={0}
-            max={0.4}
+            max={0.35}
             step={0.01}
             onChange={setSurfaceTension}
+          />
+          <PhysicsSlider label="Pile Up Bias" value={pileUpBias} min={0.02} max={0.2} step={0.01} onChange={setPileUpBias} />
+          <PhysicsSlider
+            label="Dissipation"
+            value={dissipation}
+            min={0.94}
+            max={0.99}
+            step={0.001}
+            onChange={setDissipation}
           />
         </div>
         <ResetButton onClick={handleReset} />
