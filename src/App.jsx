@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSensorInput from "./hooks/useSensorInput";
 import SandSimulator from "./simulation/SandSimulator";
-import { densityToColor } from "./components/CanvasRenderer";
 
 const DEFAULTS = {
   gridSize: 32,
-  colorScheme: "blueCyan",
 };
 
-const GRID_OPTIONS = [16, 32, 64, 128];
+const GRID_OPTIONS = [16, 32, 64];
 
 function getParticleRange(gridSize) {
   return {
@@ -19,7 +17,6 @@ function getParticleRange(gridSize) {
 
 function App() {
   const [gridSize, setGridSize] = useState(DEFAULTS.gridSize);
-  const [colorScheme, setColorScheme] = useState(DEFAULTS.colorScheme);
   const initialRange = getParticleRange(DEFAULTS.gridSize);
   const [particleCount, setParticleCount] = useState(Math.floor((initialRange.min + initialRange.max) / 2));
   const [fps, setFps] = useState(0);
@@ -74,8 +71,8 @@ function App() {
       const cellSize = canvas.width / gridSize;
       for (let y = 0; y < gridSize; y += 1) {
         for (let x = 0; x < gridSize; x += 1) {
-          const density = simulator.getParticleShade(x, y);
-          context.fillStyle = density > 0 ? densityToColor(density, colorScheme) : "#000";
+          const density = simulator.getDensity(x, y);
+          context.fillStyle = density > 0 ? "#39ff14" : "#000";
           context.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
           context.strokeStyle = "#222";
           context.lineWidth = 0.5;
@@ -95,7 +92,7 @@ function App() {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       window.removeEventListener("resize", resizeCanvas);
     };
-  }, [colorScheme, gridSize, sensor.forceMag, sensor.forceX, sensor.forceY, simulator]);
+  }, [gridSize, sensor.forceMag, sensor.forceX, sensor.forceY, simulator]);
 
   const requestMotion = async () => {
     setMotionRequested(true);
@@ -119,7 +116,7 @@ function App() {
             fontSize: "12px",
           }}
         >
-          FPS: {fps} | Grid: {gridSize}x{gridSize} | {colorScheme} | Particles: {simulator.getParticleCount()}
+          FPS: {fps} | Grid: {gridSize}x{gridSize} | Green | Particles: {simulator.getParticleCount()}
         </div>
       </div>
 
@@ -227,28 +224,6 @@ function App() {
               <div style={{ fontSize: "12px", marginTop: "4px", color: "#b8beca" }}>
                 {particleCount} (min {particleRange.min}, max {particleRange.max})
               </div>
-            </div>
-          </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <label>Color Scheme</label>
-            <div>
-              {["blueCyan", "heat", "monochrome"].map((scheme) => (
-                <button
-                  key={scheme}
-                  onClick={() => setColorScheme(scheme)}
-                  style={{
-                    padding: "8px 16px",
-                    margin: "4px",
-                    background: colorScheme === scheme ? "#007aff" : "#333",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  {scheme}
-                </button>
-              ))}
             </div>
           </div>
           <button
