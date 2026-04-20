@@ -16,12 +16,11 @@ function useSensorInput() {
   const seenEventRef = useRef(false);
 
   const onOrientation = useCallback((event) => {
-    const beta = typeof event.beta === "number" ? event.beta : 0;
     const gamma = typeof event.gamma === "number" ? event.gamma : 0;
 
     const currentX = clamp(gamma / 90, -1, 1);
-    const currentY = clamp(beta / 90, -1, 1);
-    const currentMag = Math.sqrt(currentX ** 2 + currentY ** 2);
+    const currentY = 0;
+    const currentMag = Math.abs(currentX);
 
     const prev = filteredRef.current;
     const nextX = FILTER_ALPHA * prev.forceX + (1 - FILTER_ALPHA) * currentX;

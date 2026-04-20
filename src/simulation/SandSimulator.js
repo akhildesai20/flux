@@ -6,16 +6,19 @@ export class SandSimulator {
     this.maxParticlesPerCell = 12;
     this.grid = Array.from({ length: width }, () => Array.from({ length: height }, () => 0));
     this.gravity_x = 0;
-    this.gravity_y = 1;
+    this.gravity_y = 0;
     this.reset();
   }
 
   setForce(fx, fy, magnitude) {
-    if (magnitude < 0.01) return;
-    const mag = Math.sqrt(fx * fx + fy * fy);
-    if (mag < 0.0001) return;
-    this.gravity_x = fx / mag;
-    this.gravity_y = fy / mag;
+    if (Math.abs(fx) < 0.08) {
+      this.gravity_x = 0;
+      this.gravity_y = 0;
+      return;
+    }
+
+    this.gravity_x = fx > 0 ? 1 : -1;
+    this.gravity_y = 0;
   }
 
   update() {
@@ -29,10 +32,10 @@ export class SandSimulator {
         for (let i = 0; i < count; i += 1) {
           const { nx, ny } = this.findNewPosition(x, y, newGrid);
 
-          if (!this.addParticleToCell(nx, ny, newGrid)) {
-            // Destination was full or invalid: keep particle at source.
-            // If source cell is already at max in newGrid, we still add one to conserve particle count.
-            this.addParticleToCell(x, y, newGrid, true);
+          if (this.isEmpty(nx, ny, newGrid)) {
+            newGrid[nx][ny] += 1;
+          } else {
+            newGrid[x][y] += 1;
           }
         }
       }
@@ -42,66 +45,43 @@ export class SandSimulator {
   }
 
   findNewPosition(x, y, newGrid) {
-    const primaryDx = this.gravity_x > 0 ? 1 : this.gravity_x < 0 ? -1 : 0;
-    const primaryDy = this.gravity_y > 0 ? 1 : this.gravity_y < 0 ? -1 : 0;
-    const primaryMagnitude = Math.max(Math.abs(this.gravity_x), Math.abs(this.gravity_y));
+    const primaryDx = this.gravity_x;
+    const primaryDy = 1;
 
-    if (Math.random() < primaryMagnitude) {
-      const nx = x + primaryDx;
-      const ny = y + primaryDy;
-      if (this.isEmpty(nx, ny, newGrid)) {
-        return { nx, ny };
-      }
+    const nx1 = x + primaryDx;
+    const ny1 = y + primaryDy;
+    if (this.isEmpty(nx1, ny1, newGrid)) {
+      return { nx: nx1, ny: ny1 };
     }
 
-    if (primaryDx !== 0 && primaryDy !== 0) {
-      const tryX = Math.random() > 0.5;
-      if (tryX && this.isEmpty(x + primaryDx, y, newGrid)) {
-        return { nx: x + primaryDx, ny: y };
+    const nx2 = x;
+    const ny2 = y + 1;
+    if (this.isEmpty(nx2, ny2, newGrid)) {
+      return { nx: nx2, ny: ny2 };
+    }
+
+    if (primaryDx !== 0) {
+      const nx3 = x + primaryDx;
+      const ny3 = y;
+      if (this.isEmpty(nx3, ny3, newGrid)) {
+        return { nx: nx3, ny: ny3 };
       }
-      if (this.isEmpty(x, y + primaryDy, newGrid)) {
-        return { nx: x, ny: y + primaryDy };
-      }
-    } else if (primaryDx !== 0) {
-      const tryUp = Math.random() > 0.5;
-      if (tryUp && this.isEmpty(x, y - 1, newGrid)) {
-        return { nx: x, ny: y - 1 };
-      }
-      if (this.isEmpty(x, y + 1, newGrid)) {
-        return { nx: x, ny: y + 1 };
-      }
-    } else if (primaryDy !== 0) {
-      const tryLeft = Math.random() > 0.5;
-      if (tryLeft && this.isEmpty(x - 1, y, newGrid)) {
-        return { nx: x - 1, ny: y };
-      }
-      if (this.isEmpty(x + 1, y, newGrid)) {
-        return { nx: x + 1, ny: y };
+
+      const nx4 = x - primaryDx;
+      const ny4 = y;
+      if (this.isEmpty(nx4, ny4, newGrid)) {
+        return { nx: nx4, ny: ny4 };
       }
     }
 
     return { nx: x, ny: y };
   }
 
-  addParticleToCell(x, y, newGrid, allowOverflow = false) {
+  isEmpty(x, y, newGrid) {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
       return false;
     }
-    if (allowOverflow || newGrid[x][y] < this.maxParticlesPerCell) {
-      newGrid[x][y] += 1;
-      return true;
-    }
-    return false;
-  }
-
-  isEmpty(x, y, newGrid) {
-    return (
-      x >= 0 &&
-      x < this.width &&
-      y >= 0 &&
-      y < this.height &&
-      newGrid[x][y] < this.maxParticlesPerCell
-    );
+    return newGrid[x][y] < this.maxParticlesPerCell;
   }
 
   getDensity(x, y) {
@@ -122,6 +102,8 @@ export class SandSimulator {
         placed += count;
       }
     }
+
+    console.log("Reset: placed", placed, "particles");
   }
 
   clear() {
