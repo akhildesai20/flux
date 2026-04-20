@@ -18,6 +18,10 @@ const DEFAULTS = {
   gravity: 0.15,
   viscosity: 0.0001,
   decay: 0.99,
+  wallDamping: 0.82,
+  pressureIterations: 22,
+  shearViscosity: 0.08,
+  surfaceTension: 0.12,
 };
 
 function App() {
@@ -28,6 +32,10 @@ function App() {
   const [gravity, setGravity] = useState(DEFAULTS.gravity);
   const [viscosity, setViscosity] = useState(DEFAULTS.viscosity);
   const [decay, setDecay] = useState(DEFAULTS.decay);
+  const [wallDamping, setWallDamping] = useState(DEFAULTS.wallDamping);
+  const [pressureIterations, setPressureIterations] = useState(DEFAULTS.pressureIterations);
+  const [shearViscosity, setShearViscosity] = useState(DEFAULTS.shearViscosity);
+  const [surfaceTension, setSurfaceTension] = useState(DEFAULTS.surfaceTension);
 
   const sensor = useSensorInput();
   const { theme, toggleTheme } = useTheme();
@@ -35,6 +43,10 @@ function App() {
   simulator.gravity = gravity;
   simulator.diffusion = viscosity;
   simulator.decay = decay;
+  simulator.wallDamping = wallDamping;
+  simulator.pressureIterations = pressureIterations;
+  simulator.shearViscosity = shearViscosity;
+  simulator.surfaceTension = surfaceTension;
 
   const rendererRef = useRef(null);
   const { fps } = useGameLoop(simulator, sensor, rendererRef);
@@ -43,6 +55,10 @@ function App() {
     setGravity(DEFAULTS.gravity);
     setViscosity(DEFAULTS.viscosity);
     setDecay(DEFAULTS.decay);
+    setWallDamping(DEFAULTS.wallDamping);
+    setPressureIterations(DEFAULTS.pressureIterations);
+    setShearViscosity(DEFAULTS.shearViscosity);
+    setSurfaceTension(DEFAULTS.surfaceTension);
     simulator.reset();
   };
 
@@ -94,6 +110,38 @@ function App() {
             onChange={setViscosity}
           />
           <PhysicsSlider label="Decay" value={decay} min={0.9} max={1} step={0.001} onChange={setDecay} />
+          <PhysicsSlider
+            label="Wall Damping"
+            value={wallDamping}
+            min={0.2}
+            max={1}
+            step={0.01}
+            onChange={setWallDamping}
+          />
+          <PhysicsSlider
+            label="Pressure Iterations"
+            value={pressureIterations}
+            min={8}
+            max={40}
+            step={1}
+            onChange={(value) => setPressureIterations(Math.round(value))}
+          />
+          <PhysicsSlider
+            label="Shear Viscosity"
+            value={shearViscosity}
+            min={0}
+            max={0.3}
+            step={0.01}
+            onChange={setShearViscosity}
+          />
+          <PhysicsSlider
+            label="Surface Tension"
+            value={surfaceTension}
+            min={0}
+            max={0.4}
+            step={0.01}
+            onChange={setSurfaceTension}
+          />
         </div>
         <ResetButton onClick={handleReset} />
         <div className="info-section">
@@ -103,6 +151,7 @@ function App() {
             Grid: {gridSize}x{gridSize}
           </p>
           <p>Color: {colorScheme}</p>
+          <p>Pressure Iterations: {pressureIterations}</p>
         </div>
       </BottomSheet>
 
