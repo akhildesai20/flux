@@ -3,6 +3,7 @@ export class SandSimulator {
     this.width = width;
     this.height = height;
     this.particleCount = particleCount;
+    this.maxParticlesPerCell = 12;
     this.grid = Array.from({ length: width }, () => Array.from({ length: height }, () => 0));
     this.gravity_x = 0;
     this.gravity_y = 1;
@@ -84,12 +85,19 @@ export class SandSimulator {
   }
 
   isEmpty(x, y, newGrid) {
-    return x >= 0 && x < this.width && y >= 0 && y < this.height && newGrid[x][y] < 1;
+    return (
+      x >= 0 &&
+      x < this.width &&
+      y >= 0 &&
+      y < this.height &&
+      newGrid[x][y] < this.maxParticlesPerCell
+    );
   }
 
   getDensity(x, y) {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) return 0;
-    return Math.min(1, this.grid[x][y] / 100);
+    const normalized = Math.min(1, this.grid[x][y] / this.maxParticlesPerCell);
+    return Math.sqrt(normalized);
   }
 
   reset() {
@@ -100,7 +108,7 @@ export class SandSimulator {
     for (let x = 0; x < this.width && placed < this.particleCount; x += 1) {
       for (let y = 0; y < topThird && placed < this.particleCount; y += 1) {
         const count = Math.floor(Math.random() * 10) + 5;
-        this.grid[x][y] += count;
+        this.grid[x][y] = Math.min(this.maxParticlesPerCell, this.grid[x][y] + count);
         placed += count;
       }
     }

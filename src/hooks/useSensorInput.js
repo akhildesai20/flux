@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const FILTER_ALPHA = 0.7;
-const MOTION_THRESHOLD = 0.15;
+const MOTION_THRESHOLD = 0.08;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
